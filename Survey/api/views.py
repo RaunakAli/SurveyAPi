@@ -1,24 +1,74 @@
-from django.shortcuts import render
-from rest_framework import viewsets
-from .serializers import SurveySerializer
-from .models import Survey
-from .models import Survey
-from .serializers import SurveySerializer
+from rest_framework import status
 from rest_framework.response import Response
-# Create your views here.
-class SurveyViewSet(viewsets.ModelViewSet):
-    queryset = Survey.objects.all()
-    serializer_class = SurveySerializer
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from .models import SurveyResponse,Survey
+from .serializers import SurveyResponseSerializer,SurveySerializer
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        return Response(serializer.data)
+class SurveyViewSet(APIView):
+    def get(self, request, survey_id):
+        user_id = request.user.id
+        try:
+            response = SurveyResponse.objects.get(survey_id=survey_id, user_id=user_id)
+            response_serializer = SurveyResponseSerializer(response)
+            survey = Survey.objects.get(id=survey_id)
+            survey_serializer = SurveySerializer(survey)
 
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
-#class  SurveryDisplayView():
-#class SurveyListView():
+            return Response({
+                "response": response_serializer.data,
+                "user_id": user_id,
+                "survey": survey_serializer.data,
+            }, status=status.HTTP_200_OK)
+
+        except SurveyResponse.DoesNotExist:
+            # If no response exists, return only survey details
+            survey = Survey.objects.get(id=survey_id)
+            survey_serializer = SurveySerializer(survey)
+            return Response({
+                "response": "USER's FirstAttempt",
+                "user_id": user_id,
+                "survey": survey_serializer.data,
+            }, status=status.HTTP_200_OK)
+            #return Response({"message": "Survey not found"}, status=status.HTTP_404_NOT_FOUND)
+
+class Survey_Response(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, survey_id):
+        user_id = request.user.id
+        try:
+            response = SurveyResponse.objects.get(survey_id=survey_id, user_id=user_id)
+            response_serializer = SurveyResponseSerializer(response)
+            survey = Survey.objects.get(id=survey_id)
+            survey_serializer = SurveySerializer(survey)
+            return Response({"response": response_serializer.data,
+                "user_id": user_id,
+                "survey": survey_serializer.data,},status=status.HTTP_200_OK)
+        except SurveyResponse.DoesNotExist:
+            # If no response exists, return only survey details
+            survey = Survey.objects.get(id=survey_id)
+            survey_serializer = SurveySerializer(survey)
+            return Response({"response": "User's First Attempt",
+                "user_id": user_id,
+                "survey": survey_serializer.data,}, status=status.HTTP_200_OK)
+            #return Response({"message": "Survey not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    def post(self, request):
+        user_id = request.user.id
+        survey_id = request.data.get('survey_id')
+        try:
+            response = SurveyResponse.objects.get(survey_id=survey_id, user_id=user_id)
+            # If a response already exists, you can update it here
+            serializer = SurveyResponseSerializer(response, data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except SurveyResponse.DoesNotExist:
+            # If no response exists, you can create a new one here
+            serializer = SurveyResponseSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save(user_id=user_id)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+

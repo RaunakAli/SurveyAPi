@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Survey
+from .models import Survey,SurveyResponse
 
 class SurveyAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'is_live', 'start_date', 'end_date')
@@ -7,5 +7,5 @@ class SurveyAdmin(admin.ModelAdmin):
     search_fields = ('name', 'desc')
 
 admin.site.register(Survey, SurveyAdmin)
-
+admin.site.register(SurveyResponse)
 # Register your models here.
