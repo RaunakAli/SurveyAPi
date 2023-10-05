@@ -17,7 +17,7 @@ class Survey(models.Model):
 class SurveyResponse(models.Model):
     survey_id = models.IntegerField()
     user_id = models.IntegerField()
-    response_timestamp = models.DateTimeField()
+    response_timestamp = models.DateTimeField(default=timezone.now)
     completed = models.BooleanField(default=False)
 
     question_name = models.JSONField()

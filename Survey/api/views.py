@@ -31,7 +31,57 @@ class SurveyDetail(APIView):
                 "user_id": user_id,
                 "survey": survey_serializer.data,
             }, status=status.HTTP_200_OK)
-            #return Response({"message": "Survey not found"}, status=status.HTTP_404_NOT_FOUND)
+            # return Response({"message": "Survey not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    def post(self, request,survey_id):
+        user_id = request.user.id
+        response_data = request.data.get('response', {})
+        try:
+            user_response = SurveyResponse.objects.get(survey_id=survey_id, user_id=user_id)
+            if user_response and not  user_response.completed :
+                existing_response = user_response.response
+                existing_response.update(response_data)
+                user_response.response = existing_response
+                updated_data = {
+                    "user_id": user_id,
+                    "survey_id": survey_id,
+                    "question_name": user_response.question_name,
+                    "response": existing_response,
+                }
+                serializer = SurveyResponseSerializer(user_response, data=updated_data)
+                if serializer.is_valid():
+                    serializer.save()
+                    user_response.save()# Save the updated data
+                    return Response(serializer.data, status=status.HTTP_200_OK)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response("ALREADY FILLED BY THE USER", status=status.HTTP_200_OK)
+        except SurveyResponse.DoesNotExist:
+            survey = Survey.objects.get(id=survey_id)
+            survey_serializer = SurveySerializer(survey)
+            questions_data = survey_serializer.data.get('questions')
+            question_name_to_title = {
+                question["name"]: question["title"]
+                for question in questions_data
+            }
+            response_data = request.data.get('response', {})
+            serializer_data = {
+                "user_id": user_id,
+                "survey_id": survey_id,
+                "question_name": question_name_to_title,
+                "response": response_data,
+            }
+            serializer = SurveyResponseSerializer(data=serializer_data)
+
+            if serializer.is_valid():
+                validated_data = serializer.validated_data
+                validated_data["response"] = response_data  # Update the validated data
+                serializer.save(**validated_data)  # Pass the validated data as keyword arguments
+                return Response(serializer.data, status=status.HTTP_200_OK)
+
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response("ISSUES?", status=status.HTTP_400_BAD_REQUEST)
+
+
 
 class Survey_Response(APIView):
     permission_classes = [IsAuthenticated]
