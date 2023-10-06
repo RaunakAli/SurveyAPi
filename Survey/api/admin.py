@@ -1,11 +1,8 @@
 from django.contrib import admin
 from .models import Survey,SurveyResponse
 
-class SurveyAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'is_live', 'start_date', 'end_date')
-    list_filter = ('is_live', 'start_date', 'end_date')
-    search_fields = ('name', 'desc')
 
-admin.site.register(Survey, SurveyAdmin)
+
+admin.site.register(Survey)
 admin.site.register(SurveyResponse)
 # Register your models here.
