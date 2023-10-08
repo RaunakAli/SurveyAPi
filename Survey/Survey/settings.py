@@ -80,7 +80,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'Survey',
         'USER': 'postgres',
-        'PASSWORD': 'Shhariqueali',
+        'PASSWORD': 'admin',
         'HOST': 'localhost',
         'PORT': '5432',
     },
