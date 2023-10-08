@@ -1,7 +1,17 @@
-from rest_framework import serializers
+from rest_framework import serializers, status
+from rest_framework.response import Response
+
 from .models import Survey,SurveyResponse
 
+class SurveySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Survey
+        fields = '__all__'
 
+    def validate(self, data):
+        if  data.get('start_date') >= data.get('end_date'):
+            raise serializers.ValidationError("Start date must be before the end date.")
+        return data
 
 class SurveyResponseSerializer(serializers.ModelSerializer):
     class Meta:
@@ -9,23 +19,8 @@ class SurveyResponseSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def validate(self, data):
-        self.instance
+        instance = self.instance
+        if len(instance.survey.questions.keys()) < len(instance.response):
+            raise serializers.ValidationError("No of responses are more than No of Questions")
+        instance.is_completed = all(question in instance.response for question in instance.survey.questions.keys())
         return data
-
-    def create(self, validated_data):
-        # Custom logic for creating SurveyResponse instances
-        instance = super(SurveyResponseSerializer, self).create(validated_data)
-        self.update_completed(instance)
-        return instance
-
-    def update(self, instance, validated_data):
-        # Custom logic for updating SurveyResponse instances
-        instance = super(SurveyResponseSerializer, self).update(instance, validated_data)
-        self.update_completed(instance)
-        return instance
-
-    def update_completed(self, instance):
-        # Check if all elements in question_name exist in the response
-        question_name = instance.survey.questions
-        instance.completed = (len(instance.response) == len(question_name)) and all(
-            question in instance.response for question in question_name)

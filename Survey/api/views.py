@@ -1,4 +1,5 @@
 import json
+from rest_framework import generics
 
 from rest_framework import status
 from rest_framework import viewsets
@@ -6,36 +7,62 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from .models import SurveyResponse,Survey
-from .serializers import SurveyResponseSerializer
+from .serializers import SurveyResponseSerializer, SurveySerializer
 from django.shortcuts import get_object_or_404
 
-class SurveyDetail(APIView):
-    def get(self, request,survey_id):
-        #Takes user_id and survey_id, Returns responses of the user if they exist(AND THE SURVEY),else, just the survey
+class SurveyDetail(generics.RetrieveUpdateAPIView):
+    #Retrieves the Survey(Detail) and response(If exists), And can be used to update the Survey(post)
+    # Will be used to  do EXPORTCSV with post
+    queryset = Survey.objects.all()
+    serializer_class = SurveySerializer
+    lookup_field = 'id'
 
-        user_id = request.user.id
+    def retrieve(self, request, *args, **kwargs):
 
-        response_exists = SurveyResponse.objects.filter(survey_id=survey_id, user_id=user_id)
-
-        survey = get_object_or_404(Survey,pk=survey_id)
-
+        user_id = self.request.user.id
+        survey = self.get_object()
+        user_response = SurveyResponse.objects.filter(survey_id=survey.id, user_id=user_id).first()
         response_data = {
-            "response":  response_exists[0] if response_exists else None,
+            "response": SurveyResponseSerializer(user_response).data["response"] if user_response else None,
             "user_id": user_id,
             "survey": survey.survey,
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
 
-    def post(self, request,survey_id):
-        user_id = 1
-        response_data = request.data.get('response', {})
-        user_response = SurveyResponse.objects.get_or_create(survey_id=survey_id, user_id=user_id)[0]
-        existing_response = user_response.response.update(response_data)
-        serializer = SurveyResponseSerializer(user_response,data={},partial=True)
-        if serializer.is_valid():
-                    serializer.save()
-                    #user_response.save()# Save the updated data
-                    return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class SurveyDetailUpdateView(generics.UpdateAPIView):
+    #If response found updates the "response" Field else creates a new Response
+
+    queryset = SurveyResponse.objects.all()
+    serializer_class = SurveyResponseSerializer
+    lookup_url_kwarg = 'survey_id'  # Assuming 'survey_id' is the URL parameter you use for lookup
+
+    def get_object(self):
+        user_id = self.request.user.id # Replace with the actual user_id as needed
+        survey_id = self.kwargs.get('survey_id')
+        obj, created = SurveyResponse.objects.get_or_create(survey_id=survey_id, user_id=user_id)
+        return obj
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        response_data = request.data.get('response', {})
+        # Update the response_data by merging it with the existing data
+        instance.response.update(response_data)
+        serializer = self.get_serializer(instance, partial=True,data={})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)#TOOD:- Let it oonly return a Ok message
+class SurveyList(generics.ListCreateAPIView):
+    # A get request Lists all the survey, A post request allows us to make a new  survey
+    queryset = Survey.objects.all()
+    serializer_class = SurveySerializer
+
+    def perform_create(self, serializer):
+        serializer.save()  # This will save the new Survey object
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)

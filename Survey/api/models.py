@@ -10,7 +10,7 @@ class Survey(models.Model):
     id = models.AutoField(primary_key=True)
     is_live = models.BooleanField(default=True)
     name = models.CharField(max_length=100)
-    discription = models.TextField()
+    description = models.TextField()
     creater = models.ForeignKey(User, on_delete=models.CASCADE)
     start_date = models.DateField(default=timezone.now)
     end_date = models.DateField(default=timezone.now)
